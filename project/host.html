@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Host Dashboard — Monopolistic Competition</title>
+
+  /css/theme.css
+  /css/main.css
+  /css/responsive.css
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <nav style="
+    width:100%;
+    background:var(--warm-orange);
+    color:white;
+    font-weight:700;
+    padding:14px 20px;
+    font-size:20px;
+    box-shadow:0 3px 8px rgba(0,0,0,0.15);
+  ">
+    Monopolistic Competition — Host Dashboard
+  </nav>
+
+  <div class="container">
+    <h1 style="margin-top:18px;">Host Dashboard</h1>
+    <p class="muted">Manage the game, monitor submissions, and compute results in real time.</p>
+
+    <div class="card">
+      <div class="title-row">
+        <h2>Class Control</h2>
+        <div class="badge">Round: <span id="roundSpan">1</span></div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <button class="btn" id="resetBtn">Start / Reset</button>
+        <button class="btn" id="computeBtn">Advance & Compute Round</button>
+        <button class="btn secondary" id="downloadCsvBtn" disabled>Download CSV</button>
+        <button class="btn secondary" id="clearChartsBtn" disabled>Clear Charts</button>
+        <button class="btn secondary" id="hardResetBtn">Kick All (Hard Reset)</button>
+      </div>
+    </div>
+
+    <div id="roster" class="card"></div>
+
+    <div class="card">
+      <h2>Submission Progress</h2>
+
+      <div class="progress-container">
+        <div id="progress-label" style="font-weight:700;margin-bottom:6px;">
+          0 of 0 teams submitted
+        </div>
+        <div class="progress-bar"><div class="progress-fill"></div></div>
+      </div>
+
+      <div id="unsubmitted-list" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="card">
+      <h2>Market, Substitution & Cost Parameters</h2>
+
+      <div class="grid-3" style="margin-top:10px;">
+        <div>
+          <label>Base demand (A)</label><input type="number" id="baseDemand" />
+          <label>Brand lift (θ)</label><input type="number" id="brandLiftMarket" />
+          <label>Price drag (φ)</label><input type="number" id="priceDragMarket" />
+        </div>
+
+        <div>
+          <label>β (brand) in utility</label><input type="number" id="betaBrand" />
+          <label>β (price) in utility</label><input type="number" id="betaPrice" />
+          <label>Brand persistence (ρ)</label><input type="number" id="brandPersistence" />
+        </div>
+
+        <div>
+          <label>Fixed cost (F)</label><input type="number" id="fixedCost" />
+          <label>Variable cost (c)</label><input type="number" id="variableCost" />
+          <label>Convex cost (k)</label><input type="number" id="convexCost" />
+          <label>Brand cost linear (α)</label><input type="number" id="brandCostLinear" />
+          <label>Brand cost quadratic (β)</label><input type="number" id="brandCostQuadratic" />
+        </div>
+      </div>
+
+      <h2 style="margin-top:14px;">Demand Shocks</h2>
+
+      <div class="grid-2" style="margin-top:12px;">
+        <div>
+          <label>Shock mean (μ)</label><input type="number" id="shockMean" />
+          <label>Shock std dev (σ)</label><input type="number" id="shockStd" />
+        </div>
+        <div class="muted" style="display:flex;align-items:flex-end;">
+          Set σ = 0 to disable randomness.
+        </div>
+      </div>
+    </div>
+
+    <div id="results-card" class="card" style="display:none;">
+      <div class="title-row">
+        <h2>Market Results</h2>
+        <div class="muted">Broadcasted after each round to all students</div>
+      </div>
+
+      <div class="metrics" id="marketMetrics"></div>
+
+      <h2 style="margin-top:14px;">Firm Outcomes (this round)</h2>
+      <div id="firmOutcomes" class="grid-auto"></div>
+    </div>
+
+    <div id="charts-card" class="card" style="display:none;margin-top:14px;">
+      <div class="title-row">
+        <h2>Class Charts</h2>
+        <div class="muted">Charts update automatically as rounds progress.</div>
+      </div>
+
+      <div class="grid-2" style="margin-top:14px;">
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Market Demand over Rounds</div>
+          <canvas id="chartDemand" height="260"></canvas>
+        </div>
+
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Average Profit over Rounds</div>
+          <canvas id="chartAvgProfit" height="260"></canvas>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:14px;">
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Cumulative Profit by Firm</div>
+          <canvas id="chartCumProfit" height="260"></canvas>
+        </div>
+
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Market Share (%) by Firm</div>
+          <canvas id="chartMarketShare" height="260"></canvas>
+        </div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div class="muted" style="margin-bottom:6px;">Firm Profits by Round</div>
+        <canvas id="chartFirmProfit" height="300"></canvas>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;text-align:center;" class="muted">
+      All computations happen locally over your LAN — no internet required.
+    </div>
+
+  </div>
+
+  <script type="module">
+    import { WSManager } from "/js/ws.js";
+    import { State } from "/js/state.js";
+    import { HostRenderer } from "/js/render-host.js";
+
+    const ws = new WSManager({
+      onMessage: (msg) => {
+        if (msg.type === "state") State.applyServerState(msg.payload);
+        if (msg.type === "results") State.applyServerResults(msg.payload);
+        if (msg.type === "csv_data") {
+          const blob = new Blob([msg.payload.csv], { type: "text/csv" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "history.csv";
+          a.click();
+        }
+      },
+      onOpen: () => ws.send("join", { role: "host" })
+    });
+
+    HostRenderer.init(ws);
+  </script>
+
+</body>
+</html>

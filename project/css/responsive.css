@@ -1,0 +1,35 @@
+/* RESPONSIVE LAYOUT */
+
+/* Tablets */
+@media (max-width: 992px) {
+  .grid-2 { grid-template-columns: 1fr !important; }
+  .grid-3 { grid-template-columns: 1fr 1fr !important; }
+}
+
+/* Phones */
+@media (max-width: 600px) {
+  .container { padding: 14px; }
+
+  .title-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .btn, .btn.secondary { width: 100%; }
+
+  .legend { flex-direction: column; }
+
+  canvas {
+    width: 100% !important;
+    height: 220px !important;
+  }
+
+  input[type="text"], input[type="number"] {
+    font-size: 17px;
+    padding: 12px;
+  }
+
+  .grid-3, .grid-2, .grid-auto {
+    grid-template-columns: 1fr !important;
+  }
+}

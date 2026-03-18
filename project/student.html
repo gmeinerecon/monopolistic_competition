@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Student Console — Monopolistic Competition</title>
+
+  /css/theme.css
+  /css/main.css
+  /css/responsive.css
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+  <nav style="
+    width:100%;
+    background:var(--warm-orange);
+    padding:14px 20px;
+    color:white;
+    font-weight:700;
+    font-size:20px;
+    box-shadow:0 3px 8px rgba(0,0,0,0.15);
+  ">
+    Monopolistic Competition — Student Console
+  </nav>
+
+  <div class="container">
+
+    <div id="join-card" class="card">
+      <h2>Join the Game</h2>
+
+      <div class="grid-2" style="max-width:520px;">
+        <div>
+          <label>Your firm name</label>
+          <input type="text" id="firmName" placeholder="e.g., Team Delta" />
+        </div>
+
+        <div style="display:flex;align-items:flex-end;">
+          <button class="btn" onclick="joinGame()">Join</button>
+        </div>
+      </div>
+
+      <div class="muted" style="margin-top:6px;">
+        This page connects to your instructor's laptop over the local network.
+      </div>
+    </div>
+
+    <div id="play-card" class="card" style="display:none;">
+      <div class="title-row">
+        <h2>Round <span id="roundSpan">1</span> — Your Choices</h2>
+        <div class="badge">Firm: <span id="firmNameBadge"></span></div>
+      </div>
+
+      <div class="grid-3" style="margin-top:12px;">
+        <div>
+          <label>Price</label>
+          <input type="number" step="0.01" id="priceInp" value="10" oninput="updateChoice()" />
+        </div>
+
+        <div>
+          <label>Quantity</label>
+          <input type="number" step="1" id="qtyInp" value="20" oninput="updateChoice()" />
+        </div>
+
+        <div>
+          <label>Brand Investment (0–10)</label>
+          <input type="number" step="0.1" min="0" max="10" id="brandInp" value="5" oninput="updateChoice()" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <button class="btn" onclick="submitChoices()">Submit Choices</button>
+        <div class="badge" id="statusBadge">Not submitted</div>
+      </div>
+
+      <div class="muted" style="margin-top:6px;">
+        Your effective brand capital carries over between rounds.
+      </div>
+    </div>
+
+    <div id="results-card" class="card" style="display:none;margin-top:14px;">
+      <div class="title-row">
+        <h2>Class Results</h2>
+        <div class="muted">You can see your outcomes and the class average.</div>
+      </div>
+
+      <div class="metrics" id="marketMetrics"></div>
+
+      <h2 style="margin-top:14px;">Firm Outcomes (this round)</h2>
+      <div id="firmOutcomes" class="grid-auto"></div>
+    </div>
+
+    <div id="charts-card" class="card" style="display:none;margin-top:14px;">
+      <div class="title-row">
+        <h2>Class Charts</h2>
+        <div class="muted">Legends label firms by name & color.</div>
+      </div>
+
+      <div class="grid-2" style="margin-top:12px;">
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Cumulative Profit by Firm</div>
+          <canvas id="chartCumProfit" height="260"></canvas>
+        </div>
+
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Market Share (%) by Firm</div>
+          <canvas id="chartMarketShare" height="260"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;text-align:center;" class="muted">
+      Your choices update live and remain private to your device.
+    </div>
+
+  </div>
+
+  <!-- JS bootstrap -->
+  <script type="module">
+    import { WSManager } from "/js/ws.js";
+    import { State } from "/js/state.js";
+    import { StudentRenderer } from "/js/render-student.js";
+
+    const ws = new WSManager({
+      onMessage: (msg) => {
+        if (msg.type === "joined") {
+          State.myFirmId = msg.payload.firmId;
+          State.myColor = msg.payload.color;
+
+          document.getElementById("join-card").style.display = "none";
+          document.getElementById("play-card").style.display = "block";
+
+          const firmName = document.getElementById("firmName").value || "Firm";
+          document.getElementById("firmNameBadge").textContent =
+            `${firmName} (ID ${State.myFirmId})`;
+        }
+
+        if (msg.type === "kicked") {
+          document.getElementById("play-card").style.display = "none";
+          document.getElementById("results-card").style.display = "none";
+          document.getElementById("charts-card").style.display = "none";
+          document.getElementById("join-card").style.display = "block";
+          State.myFirmId = null;
+        }
+
+        if (msg.type === "state") {
+          State.applyServerState(msg.payload);
+          const badge = document.getElementById("statusBadge");
+          badge.textContent = "Not submitted";
+        }
+
+        if (msg.type === "results") {
+          State.applyServerResults(msg.payload);
+        }
+      },
+
+      onOpen: () => console.log("[Student] Connected")
+    });
+
+    StudentRenderer.init(ws);
+
+    window.joinGame = function() {
+      const name = (document.getElementById("firmName").value || "Firm").trim();
+      ws.send("join", { role: "student", name });
+    };
+
+    window.submitChoices = function() {
+      ws.send("choice_submit", {});
+    };
+
+    window.updateChoice = function() {
+      ws.send("choice_update", {
+        choice: {
+          price: Number(document.getElementById("priceInp").value),
+          quantity: Number(document.getElementById("qtyInp").value),
+          brand: Number(document.getElementById("brandInp").value)
+        }
+      });
+    };
+
+  </script>
+
+</body>
+</html>
