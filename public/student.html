@@ -168,7 +168,21 @@
     ws.send(JSON.stringify({ type:'choice_update', choice }));
   }
   ['priceInp','qtyInp','brandInp'].forEach(id=>{ document.getElementById(id).addEventListener('change', sendChoice); });
-  document.getElementById('submitBtn').addEventListener('click', ()=>{ ws.send(JSON.stringify({ type:'choice_submit' })); });
+  
+document.getElementById('submitBtn')
+  .addEventListener('click', () => {
+      ws.send(JSON.stringify({ type: 'choice_submit' }));
+
+      // Temporarily show “Submitted”
+      const badge = document.getElementById('statusBadge');
+      badge.textContent = 'Submitted';
+
+      // Remove after 5 seconds
+      setTimeout(() => {
+          badge.textContent = 'Not submitted';
+      }, 5000);
+  });
+
 
   ws.addEventListener('open', ()=>{ /* wait for join */ });
   ws.addEventListener('message', (ev)=>{
