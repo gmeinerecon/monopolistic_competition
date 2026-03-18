@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Monopolistic Competition – Host Dashboard (Local)</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>Host Dashboard</h1>
+    <p class="muted">Students join at <strong>/student</strong> at the server hosting this file.</p>
+
+    <div class="card">
+      <div class="title-row">
+        <h2>Class & Round Control</h2>
+        <div class="badge">Round: <span id="roundSpan">-</span></div>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button class="btn" id="resetBtn">Start / Reset Game (Soft)</button>
+        <button class="btn" id="computeBtn">Advance & Compute Round</button>
+        <button class="btn secondary" id="downloadCsvBtn" disabled>Download CSV</button>
+        <button class="btn secondary" id="clearChartsBtn" disabled>Clear History (Charts)</button>
+        <button class="btn secondary" id="hardResetBtn">Kick All (Hard Reset)</button>
+      </div>
+      <div id="roster" style="margin-top:10px"></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h2>Market, Substitution & Cost Parameters</h2>
+      <div class="grid-3">
+        <div>
+          <label>Base demand (A)</label>
+          <input type="number" id="baseDemand" value="100" />
+          <label>Brand lift (θ)</label>
+          <input type="number" id="brandLiftMarket" value="4" />
+          <label>Price drag (φ)</label>
+          <input type="number" id="priceDragMarket" value="3" />
+        </div>
+        <div>
+          <label>β (brand) in utility</label>
+          <input type="number" step="0.1" id="betaBrand" value="0.8" />
+          <label>β (price) in utility</label>
+          <input type="number" step="0.1" id="betaPrice" value="0.6" />
+          <label>Brand persistence (ρ)</label>
+          <input type="number" step="0.05" id="brandPersistence" value="0.8" />
+        </div>
+        <div>
+          <label>Fixed cost (F)</label>
+          <input type="number" id="fixedCost" value="10" />
+          <label>Variable cost (c)</label>
+          <input type="number" id="variableCost" value="2" />
+          <label>Convex cost (k)</label>
+          <input type="number" step="0.01" id="convexCost" value="0.05" />
+          <label>Brand cost linear (α)</label>
+          <input type="number" step="0.1" id="brandCostLinear" value="1.5" />
+          <label>Brand cost quadratic (β)</label>
+          <input type="number" step="0.1" id="brandCostQuadratic" value="0.2" />
+        </div>
+      </div>
+      <h2 style="margin-top:14px;">Demand Shocks</h2>
+      <div class="grid-3">
+        <div>
+          <label>Shock mean (μ)</label>
+          <input type="number" id="shockMean" value="0" />
+        </div>
+        <div>
+          <label>Shock std dev (σ)</label>
+          <input type="number" id="shockStd" value="10" />
+        </div>
+        <div class="muted" style="display:flex;align-items:end;">Set σ = 0 to disable randomness.</div>
+      </div>
+    </div>
+
+    <div class="card" id="results-card" style="display:none; margin-top:12px">
+      <div class="title-row">
+        <h2>Market Results</h2>
+        <div class="muted">Broadcasted after each round to all students</div>
+      </div>
+      <div class="metrics" id="marketMetrics"></div>
+      <h2 style="margin-top:14px;">Firm Outcomes (this round)</h2>
+      <div id="firmOutcomes" class="grid-auto"></div>
+    </div>
+
+    <div class="card" id="charts-card" style="display:none; margin-top:12px">
+      <div class="title-row"><h2>Class Charts</h2><div class="muted">Legends label firms by name & color</div></div>
+      <div class="grid-2">
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Market Demand over rounds</div>
+          <div class="legend" id="legendDemand"></div>
+          <canvas id="chartDemand" width="560" height="260"></canvas>
+        </div>
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Average Profit over rounds</div>
+          <canvas id="chartAvgProfit" width="560" height="260"></canvas>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:12px;">
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Cumulative Profit by firm</div>
+          <div class="legend" id="legendCum"></div>
+          <canvas id="chartCumProfit" width="560" height="260"></canvas>
+        </div>
+        <div>
+          <div class="muted" style="margin-bottom:6px;">Market Share (%) by firm</div>
+          <div class="legend" id="legendShare"></div>
+          <canvas id="chartMarketShare" width="560" height="260"></canvas>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div class="muted" style="margin-bottom:6px;">Firm Profits by round</div>
+        <div class="legend" id="legendProfit"></div>
+        <canvas id="chartFirmProfit" width="1140" height="280"></canvas>
+      </div>
+    </div>
+
+    
+  </div>
+
+  <script src="/common.js"></script>
+  <script>
+  const ws = new WebSocket((location.protocol==='https:'?'wss':'ws')+'://'+location.host);
+  const el = id => document.getElementById(id);
+
+  const pIds = [
+    'baseDemand','brandLiftMarket','priceDragMarket','betaBrand','betaPrice','brandPersistence',
+    'fixedCost','variableCost','convexCost','brandCostLinear','brandCostQuadratic','shockMean','shockStd'
+  ];
+
+  const state = { round: 1, params: {}, firms: [], choices: {}, history: [] };
+
+  function render(){
+    el('roundSpan').textContent = state.round || '-';
+
+    // roster
+    const roster = el('roster');
+    const connected = state.firms.filter(f=>f.connected).length;
+    roster.innerHTML = '<div class="muted">Firms connected: '+connected+'/'+state.firms.length+'</div>' +
+      '<div class="grid-auto" style="margin-top:8px">' +
+      state.firms.map(f=>`<div class="card"><div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="width:12px;height:12px;border-radius:3px;background:${f.color};border:1px solid #cbd5e1"></div>
+          <div><strong>${f.name||('Firm '+f.id)}</strong> <span class="muted">(ID ${f.id}${f.connected?' · online':' · offline'})</span></div>
+        </div>
+        <button class="btn secondary kickBtn" data-id="${f.id}">Kick team</button>
+      </div><div class="muted" style="margin-top:6px;">Brand capital B: ${Number(f.brandStock||0).toFixed(2)}</div></div>`).join('') +
+      '</div>';
+
+    // parameters
+    pIds.forEach(id=>{ const inp = el(id); if(inp) inp.value = state.params[id]; });
+
+    // results
+    const hasHistory = state.history && state.history.length>0;
+    const resultsCard = document.getElementById('results-card');
+    const chartsCard = document.getElementById('charts-card');
+    resultsCard.style.display = state.lastResults ? 'block':'none';
+    chartsCard.style.display = hasHistory ? 'block':'none';
+
+    el('downloadCsvBtn').disabled = !hasHistory;
+    el('clearChartsBtn').disabled = !hasHistory;
+
+    if(state.lastResults){
+      const m = state.lastResults;
+      const market = el('marketMetrics'); market.innerHTML='';
+      const addMetric = (label, value) => { const d = document.createElement('div'); d.className='metric'; d.innerHTML = `<strong>${label}</strong><div>${value}</div>`; market.appendChild(d); };
+      addMetric('Avg Price', m.avgPrice);
+      addMetric('Avg Effective Brand', m.avgBrandEff);
+      addMetric('Baseline Demand', m.demandBaseline);
+      addMetric('Shock ε', m.shock);
+      addMetric('Market Demand', m.marketDemand);
+      addMetric('Avg Profit', m.avgProfit);
+
+      const fo = el('firmOutcomes'); fo.innerHTML='';
+      m.firmOutcomes.forEach(o=>{
+        const d = document.createElement('div'); d.className='card';
+        d.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;font-weight:700;margin-bottom:6px;">
+            <div style="width:12px;height:12px;border-radius:3px;background:${(state.firms.find(f=>f.id===o.id)||{}).color};border:1px solid #cbd5e1"></div>
+            <div>${o.name} (Firm ${o.id})</div>
+          </div>
+          <div class="grid-2">
+            <div>
+              <div class="muted">Price</div><div>${o.p}</div>
+              <div class="muted">Brand invest</div><div>${o.bInvest}</div>
+              <div class="muted">Effective brand (B)</div><div>${o.bEff}</div>
+              <div class="muted">Market share</div><div>${(o.share*100).toFixed(1)}%</div>
+            </div>
+            <div>
+              <div class="muted">Production</div><div>${o.q}</div>
+              <div class="muted">Qty. Demanded</div><div>${o.demanded.toFixed(2)}</div>
+              <div class="muted">Sales</div><div>${o.sales.toFixed(2)}</div>
+              <div class="muted">Leftover</div><div>${o.leftover.toFixed(2)}</div>
+            </div>
+          </div>
+          <div class="grid-3" style="margin-top:8px;">
+            <div><div class="muted">Revenue</div><div>${o.revenue}</div></div>
+            <div><div class="muted">Cost</div><div>${o.cost}</div></div>
+            <div><div class="muted">Profit</div><div class="${o.profit>=0?'profit-pos':'profit-neg'}">${o.profit}</div></div>
+          </div>
+        `;
+        fo.appendChild(d);
+      });
+    }
+
+    // charts
+    if(hasHistory){
+      const labels = state.history.map(h=>h.round);
+      drawLineChart('chartDemand', [{ color: '#2563eb', label:'Market Demand', data: state.history.map(h=>h.summary.marketDemand) }], labels, { legendId:'legendDemand', yTitle:'Units', xTitle:'Round' });
+      drawLineChart('chartAvgProfit', [{ color: '#16a34a', label:'Average Profit', data: state.history.map(h=>h.summary.avgProfit) }], labels, { yTitle:'$', xTitle:'Round' });
+
+      const ids = (state.history[state.history.length-1]?.firmOutcomes||[]).map(o=>o.id);
+      const byId = id => state.history.map(h => { const fo = h.firmOutcomes.find(x=>x.id===id); return fo? fo.profit : NaN; });
+      const seriesProfit = ids.map((id, idx)=>({ label: (state.firms.find(f=>f.id===id)||{}).name||('Firm '+id), color: (state.firms.find(f=>f.id===id)||{}).color||palette[idx%palette.length], data: byId(id) }));
+      drawLineChart('chartFirmProfit', seriesProfit, labels, { legendId:'legendProfit', yTitle:'Profit $', xTitle:'Round' });
+
+      // Cumulative
+      const cum = {}; ids.forEach(id=>cum[id]=[]); const running = {}; ids.forEach(id=>running[id]=0);
+      state.history.forEach(h=>{ ids.forEach(id=>{ const fo = h.firmOutcomes.find(x=>x.id===id); running[id] += fo? fo.profit : 0; cum[id].push(running[id]); }); });
+      const seriesCum = ids.map((id, idx)=>({ label: (state.firms.find(f=>f.id===id)||{}).name||('Firm '+id), color: (state.firms.find(f=>f.id===id)||{}).color||palette[idx%palette.length], data: cum[id] }));
+      drawLineChart('chartCumProfit', seriesCum, labels, { legendId:'legendCum', yTitle:'Cumulative $', xTitle:'Round' });
+
+      // Share
+      const seriesShare = ids.map((id, idx)=>({ label: (state.firms.find(f=>f.id===id)||{}).name||('Firm '+id), color: (state.firms.find(f=>f.id===id)||{}).color||palette[idx%palette.length], data: state.history.map(h=>{ const fo=h.firmOutcomes.find(x=>x.id===id); return fo? +(fo.share*100).toFixed(2) : NaN; }) }));
+      drawLineChart('chartMarketShare', seriesShare, labels, { legendId:'legendShare', yTitle:'%', xTitle:'Round' });
+    }
+  }
+
+  function applyParamsFromInputs(){
+    const params = {}; pIds.forEach(id=>{ const v = Number(el(id).value); params[id] = Number.isFinite(v)? v : state.params[id]; });
+    ws.send(JSON.stringify({ type:'set_params', params }));
+  }
+
+  ws.addEventListener('open', ()=>{
+    ws.send(JSON.stringify({ type:'join', role:'host' }));
+  });
+
+  ws.addEventListener('message', (ev)=>{
+    const msg = JSON.parse(ev.data);
+    if(msg.type==='state'){
+      const s = msg.payload; state.round = s.round; state.params = s.params; state.firms = s.firms; state.choices = s.choices; state.history = s.history; state.lastResults = null; render();
+    }
+    if(msg.type==='results'){
+      const { results, state: s } = msg.payload; state.lastResults = results; state.round = s.round; state.params = s.params; state.firms = s.firms; state.choices = s.choices; state.history = s.history; render();
+    }
+    if(msg.type==='csv_data'){
+      download('monopolistic_competition_history.csv', msg.payload.csv);
+    }
+  });
+
+  // UI events
+  document.getElementById('resetBtn').addEventListener('click', ()=>{ ws.send(JSON.stringify({ type:'reset_game', hard:false })); });
+  document.getElementById('hardResetBtn').addEventListener('click', ()=>{ ws.send(JSON.stringify({ type:'reset_game', hard:true })); });
+  document.getElementById('computeBtn').addEventListener('click', ()=>{ ws.send(JSON.stringify({ type:'compute_round' })); });
+  document.getElementById('downloadCsvBtn').addEventListener('click', ()=>{ ws.send(JSON.stringify({ type:'export_csv' })); });
+  document.getElementById('clearChartsBtn').addEventListener('click', ()=>{ state.history = []; state.lastResults=null; render(); });
+  pIds.forEach(id=>{ document.getElementById(id).addEventListener('change', applyParamsFromInputs); });
+
+  // delegate clicks on Kick team buttons
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.kickBtn');
+    if(btn){ const id = Number(btn.getAttribute('data-id')); ws.send(JSON.stringify({ type:'kick_firm', id })); }
+  });
+  </script>
+</body>
+</html>
