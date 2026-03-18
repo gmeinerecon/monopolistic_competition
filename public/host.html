@@ -16,16 +16,8 @@
         <h2>Class & Round Control</h2>
         <div class="badge">Round: <span id="roundSpan">-</span></div>
       </div>
-      <div class="row" style="margin-top:8px">
-        Theme:
-<select id="themeSelector" class="btn secondary" 
-        style="min-width:160px; font-weight:600;">
-  <option value="theme-warm.css">Warm</option>
-  <option value="theme-ocean.css">Ocean</option>
-  <option value="theme-terracotta.css">Terracotta</option>
-  <option value="theme-dark.css">Dark Mode</option>
-</select>
 
+      <div class="row" style="margin-top:8px">
         <button class="btn" id="resetBtn">Start / Reset Game (Soft)</button>
         <button class="btn" id="computeBtn">Advance & Compute Round</button>
         <button class="btn secondary" id="downloadCsvBtn" disabled>Download CSV</button>
@@ -270,38 +262,5 @@
     if(btn){ const id = Number(btn.getAttribute('data-id')); ws.send(JSON.stringify({ type:'kick_firm', id })); }
   });
   </script>
-  <script>
-const themes = [
-  "theme-warm.css",
-  "theme-ocean.css",
-  "theme-terracotta.css",
-  "theme-dark.css"
-];
-
-function applyTheme(name) {
-  let link = document.getElementById("themeStylesheet");
-  if (!link) {
-    link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.id = "themeStylesheet";
-    document.head.appendChild(link);
-  }
-  link.href = "/" + name;
-  localStorage.setItem("gameTheme", name);
-
-  // Update dropdown to match
-  const selector = document.getElementById("themeSelector");
-  if (selector) selector.value = name;
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  const saved = localStorage.getItem("gameTheme") || themes[0];
-  applyTheme(saved);
-
-  document.getElementById("themeSelector").addEventListener("change", (e) => {
-    applyTheme(e.target.value);
-  });
-});
-</script>
 </body>
 </html>
