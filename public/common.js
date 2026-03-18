@@ -44,9 +44,7 @@ function drawLineChart(canvasId, series, labels, opts={}){
   const yMap = (y)=> pad.t + h - ( (y - minY) / (maxY - minY) ) * h;
 
   series.forEach((s)=>{
-    const color = s.color || getComputedStyle(document.documentElement)
-             .getPropertyValue('--line1')
-             .trim();
+    const color = s.color || '#2563eb';
     ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.beginPath();
     let started = false;
     s.data.forEach((v,i)=>{
