@@ -9,7 +9,7 @@
 <body>
   <div class="container">
     <h1>Host Dashboard</h1>
-    <p class="muted">Students join at <strong>/student</strong> at the server hosting this file.</p>
+    <p class="muted">Locally hosted multiplayer. Students join at <strong>/student</strong> on your machine's LAN IP.</p>
 
     <div class="card">
       <div class="title-row">
@@ -114,7 +114,7 @@
       </div>
     </div>
 
-    
+    <div class="muted" style="margin-top:12px;">All local: runs over your LAN, no internet or cloud required.</div>
   </div>
 
   <script src="/common.js"></script>
@@ -135,7 +135,10 @@
     // roster
     const roster = el('roster');
     const connected = state.firms.filter(f=>f.connected).length;
-    roster.innerHTML = '<div class="muted">Firms connected: '+connected+'/'+state.firms.length+'</div>' +
+  const submitted = state.firms.filter(f=> f.connected && state.choices[f.id]).length;
+  const total = connected;
+  const submitLine = `<div class="muted">Submissions: ${submitted} / ${total}</div>`;
+    roster.innerHTML = submitLine + '<div class="muted">Firms connected: '+connected+'/'+state.firms.length+'</div>' +
       '<div class="grid-auto" style="margin-top:8px">' +
       state.firms.map(f=>`<div class="card"><div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
         <div style="display:flex;align-items:center;gap:8px;">
