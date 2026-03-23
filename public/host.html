@@ -138,13 +138,37 @@
     const connected = state.firms.filter(f=>f.connected).length;
     roster.innerHTML = '<div class="muted">Firms connected: '+connected+'/'+state.firms.length+'</div>' +
       '<div class="grid-auto" style="margin-top:8px">' +
-      state.firms.map(f=>`<div class="card"><div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
+      state.firms.map(f=>{
+  const ch = state.choices[f.id];
+  const submitted = ch?.submitted;
+
+  const statusDot = submitted
+      ? `<span style="color:#16a34a;font-weight:700;">● Submitted</span>`
+      : `<span style="color:#94a3b8;">● Pending</span>`;
+
+  return `
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:8px;justify-content:space-between;">
         <div style="display:flex;align-items:center;gap:8px;">
           <div style="width:12px;height:12px;border-radius:3px;background:${f.color};border:1px solid #cbd5e1"></div>
-          <div><strong>${f.name||('Firm '+f.id)}</strong> <span class="muted">(ID ${f.id}${f.connected?' · online':' · offline'})</span></div>
+          <div>
+            <strong>${f.name ?? ('Firm '+f.id)}</strong>
+            <span class="muted">(ID ${f.id}${f.connected?' · online':' · offline'})</span>
+          </div>
         </div>
         <button class="btn secondary kickBtn" data-id="${f.id}">Kick team</button>
-      </div><div class="muted" style="margin-top:6px;">Brand capital B: ${Number(f.brandStock||0).toFixed(2)}</div></div>`).join('') +
+      </div>
+
+      <div class="muted" style="margin-top:6px;">
+        Brand capital B: ${Number(f.brandStock ?? 0).toFixed(2)}
+      </div>
+
+      <div style="margin-top:6px;">
+        ${statusDot}
+      </div>
+    </div>
+  `;
+}).join('')+
       '</div>';
 
     // parameters
