@@ -204,7 +204,7 @@ document.getElementById('submitBtn')
       return;
     }
     if(msg.type==='state'){
-      const s = msg.payload; state.round = s.round; state.params = s.params; state.firms = s.firms; state.choices = s.choices; state.history = s.history; state.lastResults=null; render();
+      const s = msg.payload; state.round = s.round; state.params = s.params; state.firms = s.firms; state.choices = s.choices; state.history = s.history; render();
     }
     if(msg.type==='results'){
       const { results, state: s } = msg.payload; state.lastResults = results; state.round = s.round; state.params = s.params; state.firms = s.firms; state.choices = s.choices; state.history = s.history; render();
